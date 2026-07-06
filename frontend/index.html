@@ -14,12 +14,15 @@
         <!-- Seção: Adicionar Alimento -->
         <div class="card">
             <h2>🍽️ Adicionar Alimento</h2>
-            <input type="text" id="busca-alimento" placeholder="Digite o nome do alimento...">
-            <input type="hidden" id="alimento_id_selecionado">
-            <!-- Lista de sugestões será populada dinamicamente pelo JS -->
-            <ul id="lista-sugestoes" style="list-style: none; padding: 0; margin: 0;"></ul>
             
-            <input type="number" id="quantidade_gramas" placeholder="Quantidade (gramas)">
+            <!-- IDs corrigidos para casar com o JS -->
+            <input type="text" id="alimento-busca" placeholder="Digite o nome do alimento..." autocomplete="off">
+            <input type="hidden" id="alimento-id-selecionado">
+            
+            <!-- Lista onde as sugestões aparecerão -->
+            <ul id="sugestoes-lista"></ul> 
+            
+            <input type="number" id="quantidade-gramas" placeholder="Quantidade (gramas)">
             <button id="btn-adicionar">Adicionar ao Diário</button>
         </div>
 
@@ -35,7 +38,6 @@
         <!-- Seção: Metas -->
         <div class="card">
             <h2>📊 Metas</h2>
-            <!-- Usando evento JS no submit para evitar recarregar a página -->
             <form id="macro-form">
                 <input type="number" id="peso" placeholder="Peso (kg)" required>
                 <input type="number" id="altura" placeholder="Altura (cm)" required>
@@ -66,7 +68,6 @@
         </div>
     </div>
 
-    <!-- Script principal -->
     <script src="app.js"></script>
 </body>
 </html>

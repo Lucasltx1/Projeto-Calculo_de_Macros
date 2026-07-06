@@ -111,22 +111,22 @@ button:hover {
 }
 
 /* --- Sugestões de busca --- */
-#lista-sugestoes {
+#sugestoes-lista {
     list-style: none;
-    background: white;
+    padding: 0;
+    margin: 0;
     border: 1px solid #ccc;
-    border-radius: 5px;
-    max-height: 150px;
-    overflow-y: auto;
-    margin-bottom: 10px;
+    background: white;
+    position: absolute;
+    width: 100%;
+    z-index: 1000;
 }
 
-#lista-sugestoes li {
+#sugestoes-lista li {
     padding: 10px;
     cursor: pointer;
-    border-bottom: 1px solid #eee;
 }
 
-#lista-sugestoes li:hover {
+#sugestoes-lista li:hover {
     background-color: #f0f0f0;
 }

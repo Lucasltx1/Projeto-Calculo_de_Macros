@@ -9,19 +9,52 @@ function getUserId() {
     return userId;
 }
 
-// 1. GET: Consumo Hoje (Correto)
-async function carregarConsumo() {
-    const response = await fetch(`${BASE_URL}/consumo-hoje`, {
-        method: 'GET',
-        headers: { 'x-user-id': getUserId() }
-    });
-    return await response.json();
-}
+// --- BUSCA DE ALIMENTOS ---
+const inputBusca = document.getElementById('alimento-busca');
+const listaSugestoes = document.getElementById('sugestoes-lista');
+const inputIdSelecionado = document.getElementById('alimento-id-selecionado');
 
-// 2. POST: Registrar Alimento (Corrigido para enviar alimento_id e quantidade)
+inputBusca.addEventListener('input', async (e) => {
+    const termo = e.target.value;
+    if (termo.length < 2) {
+        listaSugestoes.innerHTML = '';
+        return;
+    }
+
+    // Certifique-se que seu backend tem a rota GET /alimentos?q=...
+    const response = await fetch(`${BASE_URL}/alimentos?q=${encodeURIComponent(termo)}`);
+    const alimentos = await response.json();
+
+    listaSugestoes.innerHTML = '';
+    alimentos.forEach(alimento => {
+        const li = document.createElement('li');
+        li.textContent = alimento.nome;
+        li.onclick = () => {
+            inputBusca.value = alimento.nome;
+            inputIdSelecionado.value = alimento.id; // Guarda o ID oculto
+            listaSugestoes.innerHTML = '';
+        };
+        listaSugestoes.appendChild(li);
+    });
+});
+
+// --- REGISTRAR ALIMENTO ---
+document.getElementById('btn-adicionar').addEventListener('click', async () => {
+    const id = inputIdSelecionado.value;
+    const qtd = document.getElementById('quantidade-gramas').value;
+
+    if (!id || !qtd) {
+        alert('Selecione um alimento e informe a quantidade!');
+        return;
+    }
+
+    await registrarAlimento(id, qtd);
+    alert('Alimento registrado!');
+    location.reload(); // Atualiza a página para ver o novo consumo
+});
+
 async function registrarAlimento(alimento_id, quantidade_gramas) {
     const payload = { alimento_id, quantidade_gramas };
-
     try {
         const response = await fetch(`${BASE_URL}/registrar-alimento`, {
             method: 'POST',
@@ -31,7 +64,6 @@ async function registrarAlimento(alimento_id, quantidade_gramas) {
             },
             body: JSON.stringify(payload)
         });
-        
         if (!response.ok) throw new Error('Erro ao registrar');
         return await response.json();
     } catch (error) {
@@ -39,33 +71,19 @@ async function registrarAlimento(alimento_id, quantidade_gramas) {
     }
 }
 
-// 3. DELETE: Deletar Alimento (Corrigido para usar Path Parameter)
-async function deletarAlimento(registro_id) {
-    try {
-        // Agora passando o ID na URL: /deletar-alimento/123
-        const response = await fetch(`${BASE_URL}/deletar-alimento/${registro_id}`, {
-            method: 'DELETE',
-            headers: {
-                'x-user-id': getUserId()
-            }
-        });
-
-        if (!response.ok) throw new Error('Erro ao deletar');
-        return await response.json();
-    } catch (error) {
-        console.error('Erro ao deletar:', error);
-    }
+// --- OUTRAS FUNÇÕES ---
+async function carregarConsumo() {
+    const response = await fetch(`${BASE_URL}/consumo-hoje`, {
+        method: 'GET',
+        headers: { 'x-user-id': getUserId() }
+    });
+    return await response.json();
 }
 
-// 4. POST: Calcular Metas (Adicionado para completar o backend)
-async function calcularMetas(dadosMetas) {
-    const response = await fetch(`${BASE_URL}/calcular-restante`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-user-id': getUserId()
-        },
-        body: JSON.stringify(dadosMetas)
+async function deletarAlimento(registro_id) {
+    const response = await fetch(`${BASE_URL}/deletar-alimento/${registro_id}`, {
+        method: 'DELETE',
+        headers: { 'x-user-id': getUserId() }
     });
     return await response.json();
 }
