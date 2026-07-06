@@ -12,9 +12,10 @@ load_dotenv()
 app = FastAPI(title="Macro Tracker API")
 
 # Configuração de CORS - CORRIGIDO O DOMÍNIO
+# Mude para isso temporariamente
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://frontend.mandetalucas.workers.dev"],
+    allow_origins=["*"],  # Asterisco libera qualquer site
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
