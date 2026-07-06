@@ -15,15 +15,6 @@ const listaSugestoes = document.getElementById('sugestoes-lista');
 const inputIdSelecionado = document.getElementById('alimento-id-selecionado');
 const listaConsumo = document.getElementById('lista-consumo'); // Certifique-se que o ID no HTML seja esse
 const btnAdicionar = document.getElementById('btn-adicionar');
-const express = require('express');
-const cors = require('cors');
-const app = express();
-
-// Configure o CORS para aceitar sua origem específica
-app.use(cors({
-  origin: 'https://dieta.mandetalucas.workers.dev'
-}));
-
 // Ou, se quiser permitir de qualquer lugar (menos seguro, mas resolve o erro):
 // app.use(cors());
 
