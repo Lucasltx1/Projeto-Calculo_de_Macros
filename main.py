@@ -1,134 +1,143 @@
 import os
 from datetime import date
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
-# Carrega as variáveis secretas do arquivo .env
+# Carregar variáveis de ambiente
 load_dotenv()
 
-# --- ADICIONE ESTAS LINHAS DE TESTE ---
-url = os.environ.get("SUPABASE_URL")
-key = os.environ.get("SUPABASE_KEY")
+app = FastAPI(title="Macro Tracker API")
 
-print(f"DEBUG: URL lida: {url}") # Isso vai imprimir no seu terminal
-print(f"DEBUG: KEY lida: {key}")
-
-if not url:
-    raise ValueError("ERRO: A variável SUPABASE_URL não foi encontrada no .env!")
-# --- FIM DO TESTE ---
-
-supabase: Client = create_client(url, key)
-
-# Conexão segura com o cliente do Supabase
-url: str = os.environ.get("SUPABASE_URL")
-key: str = os.environ.get("SUPABASE_KEY")
-supabase: Client = create_client(url, key)
-
-# Inicialização da aplicação FastAPI
-app = FastAPI(
-    title="Macro Tracker & TMB API",
-    description="API para cálculo de Metabolismo Basal e rastreamento diário de macros usando a tabela TACO.",
-    version="1.0.0"
+# Configuração de CORS para permitir comunicação com o frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# --- MODELOS DE ENTRADA (Validação de Dados com Pydantic) ---
+# Configuração do Supabase
+url = os.environ.get("SUPABASE_URL")
+key = os.environ.get("SUPABASE_KEY")
+supabase: Client = create_client(url, key)
 
-class DadosUsuario(BaseModel):
+# Modelos de dados
+class DadosMetas(BaseModel):
     peso_kg: float
     altura_cm: float
     idade_anos: int
-    sexo: str             # 'M' ou 'F'
-    nivel_atividade: str   # 'sedentario', 'leve', 'moderado', 'muito_ativo'
+    sexo: str
+    nivel_atividade: str
+    objetivo: str
 
 class RegistroAlimento(BaseModel):
-    usuario_id: str
     alimento_id: int
     quantidade_gramas: float
 
-# --- ROTAS DA API ---
+# --- ROTAS ---
 
-@app.get("/")
-def home():
-    return {"mensagem": "API de Tracker de Macros ativa! Acesse /docs para testar as rotas."}
+@app.get("/consumo-hoje")
+def obter_consumo_hoje():
+    try:
+        hoje = date.today().isoformat()
+        resultado = supabase.table("registros_consumo") \
+            .select("id, quantidade, tabela_taco(*)") \
+            .gte("created_at", hoje) \
+            .execute()
+        return resultado.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/calcular-metabolismo")
-def calcular_metabolismo(dados: DadosUsuario):
-    """
-    Calcula a Taxa de Metabolismo Basal (TMB) e o Gasto Energético Total (GET)
-    com base na equação de Mifflin-St Jeor e no nível de atividade informado.
-    """
-    if dados.sexo.upper() == 'M':
-        tmb = (10 * dados.peso_kg) + (6.25 * dados.altura_cm) - (5 * dados.idade_anos) + 5
-    elif dados.sexo.upper() == 'F':
-        tmb = (10 * dados.peso_kg) + (6.25 * dados.altura_cm) - (5 * dados.idade_anos) - 161
-    else:
-        raise HTTPException(status_code=400, detail="O campo sexo deve ser 'M' (Masculino) ou 'F' (Feminino).")
-
-    fatores = {
-        "sedentario": 1.2,
-        "leve": 1.375,
-        "moderado": 1.55,
-        "muito_ativo": 1.725
-    }
-    
-    fator = fatores.get(dados.nivel_atividade.lower(), 1.2)
-    get = tmb * fator
-
-    return {
-        "tmb_kcal": round(tmb, 2),
-        "gasto_energetico_total_kcal": round(get, 2),
-        "classificacao_atividade": dados.nivel_atividade.lower()
-    }
+@app.get("/buscar-alimento")
+def buscar_alimento(nome: str):
+    try:
+        resultado = supabase.table("tabela_taco") \
+            .select("*") \
+            .ilike("nome_alimento", f"%{nome}%") \
+            .execute()
+        return resultado.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/registrar-alimento")
-def registrar_alimento(registro: RegistroAlimento):
-    """
-    Busca o alimento na base TACO do Supabase, calcula as proporções dos macros
-    e realiza o somatório acumulativo no diário do usuário para a data atual.
-    """
-    resposta_taco = supabase.table("tabela_taco").select("*").eq("id", registro.alimento_id).execute()
+def registrar_alimento(dados: RegistroAlimento):
+    try:
+        resultado = supabase.table("registros_consumo").insert({
+            "alimento_id": dados.alimento_id,
+            "quantidade": dados.quantidade_gramas
+        }).execute()
+        return {"status": "sucesso"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/calcular-restante")
+def calcular_restante(dados: DadosMetas):
+    # Cálculos TMB e Metas
+    s = 5 if dados.sexo == "Masculino" else -161
+    tmb = (10 * dados.peso_kg) + (6.25 * dados.altura_cm) - (5 * dados.idade_anos) + s
     
-    if not resposta_taco.data:
-        raise HTTPException(status_code=404, detail="Alimento não encontrado na base de dados TACO.")
+    multiplicadores = {"Sedentário": 1.2, "Leve": 1.375, "Moderado": 1.55, "Muito Ativo": 1.725}
+    tdee = tmb * multiplicadores.get(dados.nivel_atividade, 1.2)
+    
+    ajustes = {"Hipertrofia": 300, "Secagem": -500, "Manter": 0}
+    meta_calorica = tdee + ajustes.get(dados.objetivo, 0)
+    
+    meta_prot = dados.peso_kg * 2
+    meta_fat = dados.peso_kg * 1
+    meta_carb = (meta_calorica - (meta_prot * 4) - (meta_fat * 9)) / 4
+
+    # Calcular consumo atual
+    hoje = date.today().isoformat()
+    try:
+        registros = supabase.table("registros_consumo") \
+            .select("quantidade, tabela_taco(*)") \
+            .gte("created_at", hoje) \
+            .execute()
         
-    alimento = resposta_taco.data[0]
-    
-    multiplicador = registro.quantidade_gramas / 100.0
-    kcal_ingeridas = alimento["energia_kcal"] * multiplicador
-    prot_ingeridas = alimento["proteinas_g"] * multiplicador
-    carb_ingeridas = alimento["carboidratos_g"] * multiplicador
-    fat_ingeridas = alimento["lipideos_g"] * multiplicador
-
-    hoje = str(date.today())
-    
-    busca_diaria = supabase.table("consumo_diario").select("*").eq("usuario_id", registro.usuario_id).eq("data", hoje).execute()
-
-    if busca_diaria.data:
-        registro_atual = busca_diaria.data[0]
-        dados_atualizados = {
-            "total_kcal": round(registro_atual["total_kcal"] + kcal_ingeridas, 2),
-            "total_prot": round(registro_atual["total_prot"] + prot_ingeridas, 2),
-            "total_carb": round(registro_atual["total_carb"] + carb_ingeridas, 2),
-            "total_fat": round(registro_atual["total_fat"] + fat_ingeridas, 2),
-        }
-        supabase.table("consumo_diario").update(dados_atualizados).eq("id", registro_atual["id"]).execute()
-        mensagem_retorno = "Alimento adicionado! O total do seu dia foi atualizado com sucesso."
-    else:
-        dados_atualizados = {
-            "usuario_id": registro.usuario_id,
-            "data": hoje,
-            "total_kcal": round(kcal_ingeridas, 2),
-            "total_prot": round(prot_ingeridas, 2),
-            "total_carb": round(carb_ingeridas, 2),
-            "total_fat": round(fat_ingeridas, 2),
-        }
-        supabase.table("consumo_diario").insert(dados_atualizados).execute()
-        mensagem_retorno = "Primeiro alimento do dia registrado! Diário iniciado."
+        tot_kcal, tot_prot, tot_carb, tot_fat = 0, 0, 0, 0
+        
+        for item in registros.data:
+            q = item['quantidade'] / 100
+            alimento = item['tabela_taco']
+            tot_kcal += (alimento.get('energia_kcal', 0) * q)
+            tot_prot += (alimento.get('proteinas_g', 0) * q)
+            tot_carb += (alimento.get('carboidratos_g', 0) * q)
+            tot_fat += (alimento.get('lipideos_g', 0) * q)
+            
+    except Exception:
+        tot_kcal, tot_prot, tot_carb, tot_fat = 0, 0, 0, 0
 
     return {
-        "status": "sucesso",
-        "mensagem": mensagem_retorno,
-        "totais_acumulados_do_dia": dados_atualizados
+        "consumido_hoje": {
+            "total_kcal": round(tot_kcal, 2),
+            "total_prot": round(tot_prot, 2),
+            "total_carb": round(tot_carb, 2),
+            "total_fat": round(tot_fat, 2)
+        },
+        "restante_hoje": {
+            "calorias": round(meta_calorica - tot_kcal, 2),
+            "proteinas_g": round(meta_prot - tot_prot, 2),
+            "carboidratos_g": round(meta_carb - tot_carb, 2),
+            "gorduras_g": round(meta_fat - tot_fat, 2)
+        }
     }
+
+@app.delete("/limpar-consumo")
+def limpar_consumo():
+    hoje = date.today().isoformat()
+    try:
+        supabase.table("registros_consumo").delete().gte("created_at", hoje).execute()
+        return {"status": "sucesso"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/deletar-alimento/{registro_id}")
+def deletar_alimento(registro_id: str):
+    try:
+        supabase.table("registros_consumo").delete().eq("id", registro_id).execute()
+        return {"status": "sucesso"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
