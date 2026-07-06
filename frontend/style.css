@@ -71,12 +71,12 @@ button:hover {
     background-color: #219150;
 }
 
-/* Estilo específico para botão de deletar */
-button[onclick="limparTudo()"] {
+/* Estilo específico para botão de deletar (Atualizado para o ID btn-limpar) */
+#btn-limpar {
     background-color: #e74c3c; /* Vermelho para limpeza */
 }
 
-button[onclick="limparTudo()"]:hover {
+#btn-limpar:hover {
     background-color: #c0392b;
 }
 

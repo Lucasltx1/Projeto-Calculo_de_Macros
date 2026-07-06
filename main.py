@@ -1,6 +1,6 @@
 import os
 from datetime import date
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
@@ -11,13 +11,13 @@ load_dotenv()
 
 app = FastAPI(title="Macro Tracker API")
 
-# Configuração de CORS para permitir comunicação com o frontend
+# Configuração de CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://dieta.mandetalucas.workers.dev"], # A URL da sua Cloudflare
+    allow_origins=["https://dieta.mandetalucas.workers.dev"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"], # Permitir todos os headers para aceitar o x-user-id
 )
 
 # Configuração do Supabase
@@ -41,12 +41,14 @@ class RegistroAlimento(BaseModel):
 # --- ROTAS ---
 
 @app.get("/consumo-hoje")
-def obter_consumo_hoje():
+def obter_consumo_hoje(x_user_id: str = Header(...)):
     try:
         hoje = date.today().isoformat()
+        # Filtro adicionado: .eq("user_id", x_user_id)
         resultado = supabase.table("registros_consumo") \
             .select("id, quantidade, tabela_taco(*)") \
             .gte("created_at", hoje) \
+            .eq("user_id", x_user_id) \
             .execute()
         return resultado.data
     except Exception as e:
@@ -54,6 +56,7 @@ def obter_consumo_hoje():
 
 @app.get("/buscar-alimento")
 def buscar_alimento(nome: str):
+    # Esta rota é de busca pública na tabela taco, não precisa de x_user_id
     try:
         resultado = supabase.table("tabela_taco") \
             .select("*") \
@@ -64,18 +67,20 @@ def buscar_alimento(nome: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/registrar-alimento")
-def registrar_alimento(dados: RegistroAlimento):
+def registrar_alimento(dados: RegistroAlimento, x_user_id: str = Header(...)):
     try:
+        # Inserção com o user_id para garantir que o dado pertença ao usuário
         resultado = supabase.table("registros_consumo").insert({
             "alimento_id": dados.alimento_id,
-            "quantidade": dados.quantidade_gramas
+            "quantidade": dados.quantidade_gramas,
+            "user_id": x_user_id
         }).execute()
         return {"status": "sucesso"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/calcular-restante")
-def calcular_restante(dados: DadosMetas):
+def calcular_restante(dados: DadosMetas, x_user_id: str = Header(...)):
     # Cálculos TMB e Metas
     s = 5 if dados.sexo == "Masculino" else -161
     tmb = (10 * dados.peso_kg) + (6.25 * dados.altura_cm) - (5 * dados.idade_anos) + s
@@ -90,12 +95,13 @@ def calcular_restante(dados: DadosMetas):
     meta_fat = dados.peso_kg * 1
     meta_carb = (meta_calorica - (meta_prot * 4) - (meta_fat * 9)) / 4
 
-    # Calcular consumo atual
+    # Calcular consumo atual (filtrado pelo x_user_id)
     hoje = date.today().isoformat()
     try:
         registros = supabase.table("registros_consumo") \
             .select("quantidade, tabela_taco(*)") \
             .gte("created_at", hoje) \
+            .eq("user_id", x_user_id) \
             .execute()
         
         tot_kcal, tot_prot, tot_carb, tot_fat = 0, 0, 0, 0
@@ -127,18 +133,28 @@ def calcular_restante(dados: DadosMetas):
     }
 
 @app.delete("/limpar-consumo")
-def limpar_consumo():
+def limpar_consumo(x_user_id: str = Header(...)):
     hoje = date.today().isoformat()
     try:
-        supabase.table("registros_consumo").delete().gte("created_at", hoje).execute()
+        # Filtro de segurança para deletar apenas os dados do usuário atual
+        supabase.table("registros_consumo") \
+            .delete() \
+            .gte("created_at", hoje) \
+            .eq("user_id", x_user_id) \
+            .execute()
         return {"status": "sucesso"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/deletar-alimento/{registro_id}")
-def deletar_alimento(registro_id: str):
+def deletar_alimento(registro_id: str, x_user_id: str = Header(...)):
     try:
-        supabase.table("registros_consumo").delete().eq("id", registro_id).execute()
+        # Filtro de segurança: deleta apenas se o ID do registro bater E o user_id também
+        supabase.table("registros_consumo") \
+            .delete() \
+            .eq("id", registro_id) \
+            .eq("user_id", x_user_id) \
+            .execute()
         return {"status": "sucesso"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

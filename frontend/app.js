@@ -1,172 +1,71 @@
-// --- 1. DEFINIÇÃO DE VARIÁVEIS ---
-const inputBusca = document.getElementById('busca-alimento');
-const listaSugestoes = document.getElementById('lista-sugestoes');
-const inputIdSelecionado = document.getElementById('alimento_id_selecionado');
-const inputQuantidade = document.getElementById('quantidade_gramas');
-const btnAdicionar = document.getElementById('btn-adicionar');
-const macroForm = document.getElementById('macro-form');
-const listaConsumo = document.getElementById('lista-consumo');
+const BASE_URL = 'https://projeto-calculo-de-macros.onrender.com';
 
-// --- 2. FUNÇÃO AUXILIAR DE SELEÇÃO ---
-function selecionar(id, nome) {
-    inputIdSelecionado.value = id;
-    inputBusca.value = nome;
-    listaSugestoes.innerHTML = ''; 
+function getUserId() {
+    let userId = localStorage.getItem('user_id');
+    if (!userId) {
+        userId = crypto.randomUUID();
+        localStorage.setItem('user_id', userId);
+    }
+    return userId;
 }
 
-// --- 3. AUTOCOMPLETE ---
-inputBusca.addEventListener('input', async () => {
-    const termo = inputBusca.value;
-    if (termo.length < 2) { 
-        listaSugestoes.innerHTML = ''; 
-        return; 
-    }
+// 1. GET: Consumo Hoje (Correto)
+async function carregarConsumo() {
+    const response = await fetch(`${BASE_URL}/consumo-hoje`, {
+        method: 'GET',
+        headers: { 'x-user-id': getUserId() }
+    });
+    return await response.json();
+}
+
+// 2. POST: Registrar Alimento (Corrigido para enviar alimento_id e quantidade)
+async function registrarAlimento(alimento_id, quantidade_gramas) {
+    const payload = { alimento_id, quantidade_gramas };
 
     try {
-        const res = await fetch(`https://projeto-calculo-de-macros.onrender.com/buscar-alimento?nome=${encodeURIComponent(termo)}`);
-        if (!res.ok) return;
-
-        const lista = await res.json();
-
-        if (lista.length > 0) {
-            listaSugestoes.innerHTML = lista.map(item => `
-                <li style="cursor:pointer; padding:8px; border-bottom:1px solid #eee; background: white;" 
-                    onclick="selecionar(${item.id}, '${item.nome_alimento.replace(/'/g, "\\'")}')">
-                    ${item.nome_alimento}
-                </li>
-            `).join('');
-        } else {
-            listaSugestoes.innerHTML = '<li style="padding:8px;">Nenhum alimento encontrado.</li>';
-        }
-    } catch (err) {
-        console.error("Erro ao buscar alimentos:", err);
-    }
-});
-
-// --- 4. REGISTRAR ALIMENTO ---
-btnAdicionar.addEventListener('click', async () => {
-    const dados = {
-        alimento_id: parseInt(inputIdSelecionado.value),
-        quantidade_gramas: parseFloat(inputQuantidade.value)
-    };
-
-    if (isNaN(dados.alimento_id) || isNaN(dados.quantidade_gramas)) {
-        alert("Por favor, selecione um alimento da lista e informe a quantidade.");
-        return;
-    }
-
-    try {
-        const res = await fetch('https://projeto-calculo-de-macros.onrender.com/registrar-alimento', {
+        const response = await fetch(`${BASE_URL}/registrar-alimento`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dados)
-        });
-
-        if (res.ok) {
-            alert("Alimento registrado com sucesso!");
-            inputBusca.value = '';
-            inputQuantidade.value = '';
-            inputIdSelecionado.value = '';
-            await atualizarConsumoHoje(); 
-            // Recalcula metas automaticamente
-            macroForm.dispatchEvent(new Event('submit'));
-        } else {
-            alert("Erro ao registrar.");
-        }
-    } catch (err) {
-        console.error("Erro de conexão:", err);
-    }
-});
-
-// --- 5. CÁLCULO DE METAS ---
-macroForm.addEventListener('submit', async (e) => {
-    e.preventDefault(); 
-    const payload = {
-        peso_kg: parseFloat(document.getElementById('peso').value),
-        altura_cm: parseFloat(document.getElementById('altura').value),
-        idade_anos: parseInt(document.getElementById('idade').value),
-        sexo: document.getElementById('sexo').value,
-        nivel_atividade: document.getElementById('atividade').value,
-        objetivo: document.getElementById('objetivo').value
-    };
-
-    try {
-        const res = await fetch('https://projeto-calculo-de-macros.onrender.com/calcular-restante', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'x-user-id': getUserId()
+            },
             body: JSON.stringify(payload)
         });
-
-        const dados = await res.json();
-        if (res.ok) {
-            const divConsumidos = document.getElementById('itens-consumidos');
-            const c = dados.consumido_hoje;
-            const r = dados.restante_hoje;
-            divConsumidos.innerHTML = `
-                <div style="background: #f9f9f9; padding: 10px; border-radius: 8px;">
-                    <p><strong>Total Consumido:</strong> ${c.total_kcal} kcal | Prot: ${c.total_prot}g | Carb: ${c.total_carb}g | Fat: ${c.total_fat}g</p>
-                    <hr>
-                    <p><strong>Restante para a meta:</strong> ${r.calorias} kcal | Prot: ${r.proteinas_g}g | Carb: ${r.carboidratos_g}g | Fat: ${r.gorduras_g}g</p>
-                </div>
-            `;
-        } else {
-            alert("Erro ao calcular metas.");
-        }
-    } catch (err) {
-        console.error("Erro de rede:", err);
+        
+        if (!response.ok) throw new Error('Erro ao registrar');
+        return await response.json();
+    } catch (error) {
+        console.error('Erro:', error);
     }
-});
-
-// --- 6. ATUALIZAR LISTA DE CONSUMO ---
-async function atualizarConsumoHoje() {
-    const response = await fetch('https://projeto-calculo-de-macros.onrender.com/consumo-hoje');
-    const dados = await response.json();
-    
-    listaConsumo.innerHTML = ''; 
-
-    dados.forEach(item => {
-        const divItem = document.createElement('div');
-        divItem.style.marginBottom = "5px";
-        divItem.innerHTML = `
-            ${item.tabela_taco.nome_alimento} - ${item.quantidade}g
-            <button onclick="removerItem('${item.id}')" style="color: red; margin-left: 10px; cursor: pointer;">X</button>
-        `;
-        listaConsumo.appendChild(divItem);
-    });
 }
 
-// --- 7. REMOVER ITEM INDIVIDUAL ---
-async function removerItem(id) {
-    if (!confirm("Remover este item?")) return;
-
-    await fetch(`https://projeto-calculo-de-macros.onrender.com/deletar-alimento/${id}`, {
-        method: 'DELETE'
-    });
-    
-    await atualizarConsumoHoje();
-    // Recalcula os macros automaticamente após remover o item
-    macroForm.dispatchEvent(new Event('submit'));
-}
-
-// --- 8. LIMPAR TUDO ---
-async function limparTudo() {
-    if (!confirm("Tem certeza que deseja apagar todos os registros de hoje?")) return;
-
+// 3. DELETE: Deletar Alimento (Corrigido para usar Path Parameter)
+async function deletarAlimento(registro_id) {
     try {
-        const response = await fetch('https://projeto-calculo-de-macros.onrender.com/limpar-consumo', {
-            method: 'DELETE'
+        // Agora passando o ID na URL: /deletar-alimento/123
+        const response = await fetch(`${BASE_URL}/deletar-alimento/${registro_id}`, {
+            method: 'DELETE',
+            headers: {
+                'x-user-id': getUserId()
+            }
         });
 
-        if (response.ok) {
-            await atualizarConsumoHoje();
-            document.getElementById('itens-consumidos').innerHTML = '<p>Consumo limpo.</p>';
-        } else {
-            alert("Erro ao limpar tudo.");
-        }
+        if (!response.ok) throw new Error('Erro ao deletar');
+        return await response.json();
     } catch (error) {
-        console.error("Erro:", error);
+        console.error('Erro ao deletar:', error);
     }
 }
 
-// Inicialização
-document.addEventListener('DOMContentLoaded', atualizarConsumoHoje);
+// 4. POST: Calcular Metas (Adicionado para completar o backend)
+async function calcularMetas(dadosMetas) {
+    const response = await fetch(`${BASE_URL}/calcular-restante`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': getUserId()
+        },
+        body: JSON.stringify(dadosMetas)
+    });
+    return await response.json();
+}
