@@ -14,7 +14,8 @@ app = FastAPI(title="Macro Tracker API")
 # Configuração de CORS para permitir comunicação com o frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://dieta.mandetalucas.workers.dev"], # A URL da sua Cloudflare
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

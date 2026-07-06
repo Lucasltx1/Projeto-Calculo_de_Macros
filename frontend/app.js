@@ -23,7 +23,7 @@ inputBusca.addEventListener('input', async () => {
     }
 
     try {
-        const res = await fetch(`http://127.0.0.1:8000/buscar-alimento?nome=${encodeURIComponent(termo)}`);
+        const res = await fetch(`https://projeto-calculo-de-macros.onrender.com/buscar-alimento?nome=${encodeURIComponent(termo)}`);
         if (!res.ok) return;
 
         const lista = await res.json();
@@ -56,7 +56,7 @@ btnAdicionar.addEventListener('click', async () => {
     }
 
     try {
-        const res = await fetch('http://127.0.0.1:8000/registrar-alimento', {
+        const res = await fetch('https://projeto-calculo-de-macros.onrender.com/registrar-alimento', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(dados)
@@ -91,7 +91,7 @@ macroForm.addEventListener('submit', async (e) => {
     };
 
     try {
-        const res = await fetch('http://127.0.0.1:8000/calcular-restante', {
+        const res = await fetch('https://projeto-calculo-de-macros.onrender.com/calcular-restante', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -119,7 +119,7 @@ macroForm.addEventListener('submit', async (e) => {
 
 // --- 6. ATUALIZAR LISTA DE CONSUMO ---
 async function atualizarConsumoHoje() {
-    const response = await fetch('http://127.0.0.1:8000/consumo-hoje');
+    const response = await fetch('https://projeto-calculo-de-macros.onrender.com/consumo-hoje');
     const dados = await response.json();
     
     listaConsumo.innerHTML = ''; 
@@ -139,7 +139,7 @@ async function atualizarConsumoHoje() {
 async function removerItem(id) {
     if (!confirm("Remover este item?")) return;
 
-    await fetch(`http://127.0.0.1:8000/deletar-alimento/${id}`, {
+    await fetch(`https://projeto-calculo-de-macros.onrender.com/deletar-alimento/${id}`, {
         method: 'DELETE'
     });
     
@@ -153,7 +153,7 @@ async function limparTudo() {
     if (!confirm("Tem certeza que deseja apagar todos os registros de hoje?")) return;
 
     try {
-        const response = await fetch('http://127.0.0.1:8000/limpar-consumo', {
+        const response = await fetch('https://projeto-calculo-de-macros.onrender.com/limpar-consumo', {
             method: 'DELETE'
         });
 
