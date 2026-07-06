@@ -1,28 +1,34 @@
-# Projeto Calculo de Macros
+# Macro Tracker 🍎💪
 
-Este é um sistema automatizado para rastreamento de macronutrientes, integrado com a Tabela TACO, permitindo o registro e análise da ingestão calórica diária.
+Uma aplicação web completa para rastreamento de ingestão calórica e cálculo de macros, desenvolvida para ajudar no controle de dietas (cutting/bulking/manutenção).
 
-## 🚀 Tecnologias
-- **Linguagem:** Python
-- **Banco de Dados:** Supabase (PostgreSQL)
-- **Manipulação de Dados:** Pandas
-- **Controle de Versão:** Git/GitHub
+## 🚀 Funcionalidades
 
-## 🛠 Como rodar o projeto
-1. Clone este repositório:
-   `git clone https://github.com/Lucasltx1/Projeto-Calculo_de_Macros.git`
-2. Instale as dependências:
-   `pip install pandas supabase python-dotenv`
-3. Configure o seu arquivo `.env` com as chaves:
-   `SUPABASE_URL=sua_url`
-   `SUPABASE_KEY=sua_chave`
-4. Execute o script principal:
-   `python main.py`
+- **Busca Inteligente:** Pesquisa de alimentos integrada à Tabela TACO.
+- **Registro Diário:** Adição de alimentos consumidos com persistência de dados.
+- **Cálculo Automático:** Estimativa de TMB e macros com base em peso, altura, idade e nível de atividade.
+- **Gerenciamento de Consumo:**
+  - Visualização em tempo real dos macros totais consumidos.
+  - Exclusão individual de itens errados.
+  - Limpeza total do registro diário com um clique.
+- **Sincronização:** Cálculos atualizados automaticamente sempre que um item é adicionado ou removido.
 
-## 📈 Próximos Passos
-- [ ] Implementar interface de entrada de dados via linha de comando.
-- [ ] Criar rotina para cálculo de déficit/superávit calórico.
-- [ ] Integrar com dashboard de visualização.
+## 🛠 Tecnologias Utilizadas
 
-## 📝 Licença
-Este projeto é de uso pessoal e educacional.
+- **Backend:** Python com [FastAPI](https://fastapi.tiangolo.com/)
+- **Frontend:** HTML5, CSS3 e JavaScript (Vanilla)
+- **Banco de Dados:** [Supabase](https://supabase.com/) (PostgreSQL)
+- **Hospedagem:** Render (Backend) + Cloudflare Pages (Frontend)
+
+## 📋 Pré-requisitos
+
+Antes de começar, você precisará ter instalado:
+- Python 3.x
+- Git
+
+## ⚙️ Configuração Local
+
+1. **Clone o repositório:**
+   ```bash
+   git clone [https://github.com/Lucasltx1/Projeto-Calculo_de_Macros.git](https://github.com/Lucasltx1/Projeto-Calculo_de_Macros.git)
+   cd Projeto-Calculo_de_Macros
